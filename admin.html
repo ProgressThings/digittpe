@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProgiCheck Admin - Gestion des Clés</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+    <style>
+        :root{--primary:#1a1a1a;--accent:#00D4AA;--accent-dark:#00B894;--white:#fff;--gray-100:#f7f7f7;--gray-200:#e5e5e5;--gray-300:#d4d4d4;--gray-400:#a3a3a3;--gray-500:#737373;--danger:#ef4444;--warning:#f59e0b;--success:#10b981;--pro-gold:#FFD700}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Inter',sans-serif;background:var(--gray-100);min-height:100vh}
+        .header{background:var(--primary);color:var(--white);padding:1.5rem 2rem;display:flex;justify-content:space-between;align-items:center}
+        .header h1{font-family:'Space Grotesk',sans-serif;font-size:1.5rem}
+        .header h1 span{color:var(--accent)}
+        .header .badge{background:var(--accent);color:var(--primary);padding:.25rem .75rem;border-radius:50px;font-size:.75rem;font-weight:600}
+        .container{max-width:1200px;margin:0 auto;padding:2rem}
+        
+        /* Login */
+        .login-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:var(--primary);display:flex;align-items:center;justify-content:center;z-index:9999}
+        .login-overlay.hidden{display:none}
+        .login-box{background:var(--white);padding:2rem;border-radius:20px;width:100%;max-width:400px;text-align:center}
+        .login-box h2{font-family:'Space Grotesk',sans-serif;margin-bottom:1.5rem}
+        .login-box input{width:100%;padding:1rem;border:2px solid var(--gray-300);border-radius:10px;font-size:1rem;margin-bottom:1rem}
+        .login-box input:focus{outline:none;border-color:var(--accent)}
+        .login-box button{width:100%;padding:1rem;background:var(--accent);color:var(--primary);border:none;border-radius:50px;font-size:1rem;font-weight:600;cursor:pointer}
+        .login-box button:hover{background:var(--accent-dark)}
+        .login-error{color:var(--danger);font-size:.85rem;margin-bottom:1rem;display:none}
+        .login-error.show{display:block}
+        
+        /* Stats */
+        .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:2rem}
+        .stat-card{background:var(--white);padding:1.5rem;border-radius:16px;text-align:center}
+        .stat-card .number{font-family:'Space Grotesk',sans-serif;font-size:2.5rem;font-weight:700;color:var(--primary)}
+        .stat-card .label{color:var(--gray-500);font-size:.875rem}
+        .stat-card.success .number{color:var(--success)}
+        .stat-card.warning .number{color:var(--warning)}
+        .stat-card.pro .number{color:var(--pro-gold)}
+        
+        /* Generator */
+        .section{background:var(--white);padding:2rem;border-radius:20px;margin-bottom:2rem}
+        .section h2{font-family:'Space Grotesk',sans-serif;font-size:1.25rem;margin-bottom:1.5rem;display:flex;align-items:center;gap:.5rem}
+        .generator-form{display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end}
+        .form-group{flex:1;min-width:150px}
+        .form-group label{display:block;font-size:.875rem;font-weight:500;margin-bottom:.5rem;color:var(--gray-500)}
+        .form-group select,.form-group input{width:100%;padding:.75rem 1rem;border:2px solid var(--gray-200);border-radius:10px;font-size:1rem}
+        .form-group select:focus,.form-group input:focus{outline:none;border-color:var(--accent)}
+        .btn{padding:.875rem 1.5rem;border-radius:50px;font-size:1rem;font-weight:600;cursor:pointer;border:none;transition:all .2s}
+        .btn-primary{background:var(--accent);color:var(--primary)}
+        .btn-primary:hover{background:var(--accent-dark)}
+        .btn-danger{background:var(--danger);color:var(--white)}
+        .btn-sm{padding:.5rem 1rem;font-size:.875rem}
+        
+        /* Generated Key Display */
+        .generated-key{background:var(--gray-100);padding:1.5rem;border-radius:12px;margin-top:1.5rem;text-align:center;display:none}
+        .generated-key.show{display:block}
+        .generated-key .key{font-family:'Space Grotesk',monospace;font-size:2rem;font-weight:700;color:var(--primary);letter-spacing:3px;margin:.5rem 0}
+        .generated-key .key.pro{color:var(--pro-gold)}
+        .generated-key .copy-btn{background:var(--primary);color:var(--white);padding:.5rem 1.5rem;border-radius:50px;border:none;cursor:pointer;font-weight:600;margin-top:.5rem}
+        .generated-key .copy-btn:hover{background:var(--secondary)}
+        
+        /* Keys Table */
+        .table-container{overflow-x:auto}
+        table{width:100%;border-collapse:collapse}
+        th,td{padding:1rem;text-align:left;border-bottom:1px solid var(--gray-200)}
+        th{background:var(--gray-100);font-weight:600;font-size:.875rem;color:var(--gray-500)}
+        td{font-size:.9rem}
+        .key-cell{font-family:'Space Grotesk',monospace;font-weight:600;letter-spacing:1px}
+        .badge{padding:.25rem .75rem;border-radius:50px;font-size:.75rem;font-weight:600}
+        .badge-standard{background:var(--accent);color:var(--primary)}
+        .badge-pro{background:linear-gradient(135deg,#FFD700,#FFA500);color:var(--primary)}
+        .badge-unused{background:var(--gray-200);color:var(--gray-500)}
+        .badge-used{background:var(--success);color:var(--white)}
+        .actions{display:flex;gap:.5rem}
+        
+        /* Toast */
+        .toast{position:fixed;bottom:30px;right:30px;background:var(--primary);color:var(--white);padding:1rem 1.5rem;border-radius:12px;display:none;z-index:1000}
+        .toast.show{display:block}
+        .toast.success{background:var(--success)}
+        .toast.error{background:var(--danger)}
+        
+        /* Empty state */
+        .empty-state{text-align:center;padding:3rem;color:var(--gray-400)}
+        .empty-state .icon{font-size:3rem;margin-bottom:1rem}
+        
+        /* Config section */
+        .config-box{background:var(--gray-100);padding:1rem;border-radius:10px;margin-bottom:1.5rem}
+        .config-box code{background:var(--primary);color:var(--accent);padding:.25rem .5rem;border-radius:4px;font-size:.8rem}
+        .config-status{display:flex;align-items:center;gap:.5rem;margin-top:.5rem}
+        .status-dot{width:10px;height:10px;border-radius:50%}
+        .status-dot.connected{background:var(--success)}
+        .status-dot.disconnected{background:var(--danger)}
+    </style>
+</head>
+<body>
+    <!-- Login Overlay -->
+    <div class="login-overlay" id="loginOverlay">
+        <div class="login-box">
+            <h2>🔐 Admin ProgiCheck</h2>
+            <p style="color:var(--gray-500);margin-bottom:1.5rem">Connectez-vous pour gérer les clés</p>
+            <p class="login-error" id="loginError">Mot de passe incorrect</p>
+            <input type="password" id="adminPassword" placeholder="Mot de passe admin" onkeypress="if(event.key==='Enter')login()">
+            <button onclick="login()">Se connecter</button>
+        </div>
+    </div>
+
+    <header class="header">
+        <h1>Progi<span>Check</span> Admin</h1>
+        <span class="badge">Gestion des Clés</span>
+    </header>
+
+    <div class="container">
+        <!-- Firebase Config Status -->
+        <div class="section">
+            <h2>⚙️ Configuration Firebase</h2>
+            <div class="config-box">
+                <p><strong>Status:</strong></p>
+                <div class="config-status">
+                    <span class="status-dot" id="firebaseStatus"></span>
+                    <span id="firebaseStatusText">Vérification...</span>
+                </div>
+            </div>
+            <p style="font-size:.85rem;color:var(--gray-500)">
+                Pour configurer Firebase, modifiez les variables <code>firebaseConfig</code> dans ce fichier et dans <code>index.html</code>.
+            </p>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats">
+            <div class="stat-card">
+                <div class="number" id="totalKeys">0</div>
+                <div class="label">Total clés générées</div>
+            </div>
+            <div class="stat-card success">
+                <div class="number" id="usedKeys">0</div>
+                <div class="label">Clés utilisées</div>
+            </div>
+            <div class="stat-card warning">
+                <div class="number" id="unusedKeys">0</div>
+                <div class="label">Clés disponibles</div>
+            </div>
+            <div class="stat-card pro">
+                <div class="number" id="proKeys">0</div>
+                <div class="label">Clés Pro</div>
+            </div>
+        </div>
+
+        <!-- Key Generator -->
+        <div class="section">
+            <h2>🔑 Générer une nouvelle clé</h2>
+            <div class="generator-form">
+                <div class="form-group">
+                    <label>Type de clé</label>
+                    <select id="keyType">
+                        <option value="pro">Pro (25 000 FCFA / ~40 USD)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Client (optionnel)</label>
+                    <input type="text" id="clientName" placeholder="Nom du client">
+                </div>
+                <div class="form-group">
+                    <label>Quantité</label>
+                    <select id="keyQuantity">
+                        <option value="1">1 clé</option>
+                        <option value="5">5 clés</option>
+                        <option value="10">10 clés</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="generateKeys()">Générer</button>
+            </div>
+            <div class="generated-key" id="generatedKeyBox">
+                <p>Clé générée avec succès !</p>
+                <div class="key" id="generatedKeyDisplay">XXXX-XXXX-XXXX</div>
+                <button class="copy-btn" onclick="copyKey()">📋 Copier</button>
+            </div>
+        </div>
+
+        <!-- Keys List -->
+        <div class="section">
+            <h2>📋 Liste des clés</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Clé</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Client</th>
+                            <th>Créée le</th>
+                            <th>Utilisée le</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="keysTableBody">
+                        <tr>
+                            <td colspan="7" class="empty-state">
+                                <div class="icon">🔑</div>
+                                <p>Aucune clé générée</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+<script>
+// =====================================================
+// CONFIGURATION FIREBASE - À MODIFIER AVEC VOS INFOS
+// =====================================================
+const firebaseConfig = {
+    apiKey: "VOTRE_API_KEY",
+    authDomain: "VOTRE_PROJECT.firebaseapp.com",
+    databaseURL: "https://VOTRE_PROJECT-default-rtdb.firebaseio.com",
+    projectId: "VOTRE_PROJECT",
+    storageBucket: "VOTRE_PROJECT.appspot.com",
+    messagingSenderId: "123456789",
+    appId: "1:123456789:web:abcdef123456"
+};
+
+// Mot de passe admin (à changer!)
+const ADMIN_PASSWORD = "progicheck2024";
+
+// =====================================================
+// INITIALISATION
+// =====================================================
+let db = null;
+let keysRef = null;
+
+function initFirebase() {
+    try {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.database();
+        keysRef = db.ref('licenses');
+        
+        document.getElementById('firebaseStatus').classList.add('connected');
+        document.getElementById('firebaseStatusText').textContent = 'Connecté à Firebase';
+        
+        // Écouter les changements
+        keysRef.on('value', (snapshot) => {
+            updateKeysTable(snapshot.val());
+            updateStats(snapshot.val());
+        });
+        
+        return true;
+    } catch (error) {
+        document.getElementById('firebaseStatus').classList.add('disconnected');
+        document.getElementById('firebaseStatusText').textContent = 'Erreur: ' + error.message;
+        console.error('Firebase error:', error);
+        return false;
+    }
+}
+
+// =====================================================
+// LOGIN
+// =====================================================
+function login() {
+    const password = document.getElementById('adminPassword').value;
+    if (password === ADMIN_PASSWORD) {
+        document.getElementById('loginOverlay').classList.add('hidden');
+        initFirebase();
+    } else {
+        document.getElementById('loginError').classList.add('show');
+    }
+}
+
+// =====================================================
+// GÉNÉRATION DE CLÉ
+// =====================================================
+function generateKeyString(type) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Sans O, 0, I, 1 pour éviter confusion
+    let key = '';
+    
+    // Préfixe selon le type
+    if (type === 'pro') {
+        key = 'PRO';
+    } else {
+        key = 'STD';
+    }
+    
+    // Ajouter caractère aléatoire pour compléter le premier bloc
+    key += chars.charAt(Math.floor(Math.random() * chars.length));
+    key += '-';
+    
+    // Deux blocs de 4 caractères
+    for (let block = 0; block < 2; block++) {
+        for (let i = 0; i < 4; i++) {
+            key += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        if (block === 0) key += '-';
+    }
+    
+    return key;
+}
+
+function generateKeys() {
+    const type = document.getElementById('keyType').value;
+    const clientName = document.getElementById('clientName').value || 'Non spécifié';
+    const quantity = parseInt(document.getElementById('keyQuantity').value);
+    
+    if (!keysRef) {
+        showToast('Firebase non connecté!', 'error');
+        return;
+    }
+    
+    const generatedKeys = [];
+    
+    for (let i = 0; i < quantity; i++) {
+        const key = generateKeyString(type);
+        const keyData = {
+            key: key,
+            type: type,
+            status: 'unused',
+            client: clientName,
+            createdAt: new Date().toISOString(),
+            usedAt: null,
+            usedBy: null
+        };
+        
+        // Sauvegarder dans Firebase
+        keysRef.child(key.replace(/-/g, '')).set(keyData);
+        generatedKeys.push(key);
+    }
+    
+    // Afficher la dernière clé générée
+    const keyDisplay = document.getElementById('generatedKeyDisplay');
+    keyDisplay.textContent = generatedKeys[generatedKeys.length - 1];
+    keyDisplay.className = 'key' + (type === 'pro' ? ' pro' : '');
+    document.getElementById('generatedKeyBox').classList.add('show');
+    
+    showToast(quantity + ' clé(s) générée(s) avec succès!', 'success');
+    
+    // Reset form
+    document.getElementById('clientName').value = '';
+}
+
+function copyKey() {
+    const key = document.getElementById('generatedKeyDisplay').textContent;
+    navigator.clipboard.writeText(key).then(() => {
+        showToast('Clé copiée!', 'success');
+    });
+}
+
+// =====================================================
+// AFFICHAGE DES CLÉS
+// =====================================================
+function updateKeysTable(keys) {
+    const tbody = document.getElementById('keysTableBody');
+    
+    if (!keys) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><div class="icon">🔑</div><p>Aucune clé générée</p></td></tr>';
+        return;
+    }
+    
+    const keysArray = Object.values(keys).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    
+    tbody.innerHTML = keysArray.map(k => `
+        <tr>
+            <td class="key-cell">${k.key}</td>
+            <td><span class="badge badge-${k.type}">${k.type.toUpperCase()}</span></td>
+            <td><span class="badge badge-${k.status}">${k.status === 'used' ? 'Utilisée' : 'Disponible'}</span></td>
+            <td>${k.client || '-'}</td>
+            <td>${formatDate(k.createdAt)}</td>
+            <td>${k.usedAt ? formatDate(k.usedAt) : '-'}</td>
+            <td class="actions">
+                <button class="btn btn-sm" onclick="copyToClipboard('${k.key}')">📋</button>
+                ${k.status === 'unused' ? `<button class="btn btn-sm btn-danger" onclick="deleteKey('${k.key}')">🗑️</button>` : ''}
+            </td>
+        </tr>
+    `).join('');
+}
+
+function updateStats(keys) {
+    if (!keys) {
+        document.getElementById('totalKeys').textContent = '0';
+        document.getElementById('usedKeys').textContent = '0';
+        document.getElementById('unusedKeys').textContent = '0';
+        document.getElementById('proKeys').textContent = '0';
+        return;
+    }
+    
+    const keysArray = Object.values(keys);
+    const total = keysArray.length;
+    const used = keysArray.filter(k => k.status === 'used').length;
+    const unused = keysArray.filter(k => k.status === 'unused').length;
+    const pro = keysArray.filter(k => k.type === 'pro').length;
+    
+    document.getElementById('totalKeys').textContent = total;
+    document.getElementById('usedKeys').textContent = used;
+    document.getElementById('unusedKeys').textContent = unused;
+    document.getElementById('proKeys').textContent = pro;
+}
+
+function deleteKey(key) {
+    if (confirm('Supprimer la clé ' + key + ' ?')) {
+        keysRef.child(key.replace(/-/g, '')).remove();
+        showToast('Clé supprimée', 'success');
+    }
+}
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('Clé copiée!', 'success');
+    });
+}
+
+// =====================================================
+// UTILITAIRES
+// =====================================================
+function formatDate(isoString) {
+    if (!isoString) return '-';
+    const date = new Date(isoString);
+    return date.toLocaleDateString('fr-FR') + ' ' + date.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
+}
+
+function showToast(message, type = 'info') {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = 'toast show ' + type;
+    setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+// Check if already logged in (for development)
+if (localStorage.getItem('progicheck_admin') === 'true') {
+    document.getElementById('loginOverlay').classList.add('hidden');
+    initFirebase();
+}
+</script>
+</body>
+</html>
