@@ -368,7 +368,13 @@
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 const EMAILJS_PUBLIC_KEY="LF6930gGEBQZK63sJ",EMAILJS_SERVICE_ID="service_y7puafd",EMAILJS_TEMPLATE_ID="template_o67tdos";
-const firebaseConfig={apiKey:"AIzaSyDoPVoY_6ZGRKr5SzLZVIcAi3m1-bQjEzA",authDomain:"Vprogicheck.firebaseapp.com",databaseURL:"https://progicheck-default-rtdb.europe-west1.firebasedatabase.app",projectId:"progicheck"};
+const firebaseConfig={  apiKey: "AIzaSyDoPVoY_6ZGRKr5SzLZVIcAi3m1-bQjEzA",
+  authDomain: "progicheck.firebaseapp.com",
+  databaseURL: "https://progicheck-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "progicheck",
+  storageBucket: "progicheck.firebasestorage.app",
+  messagingSenderId: "739734702901",
+  appId: "1:739734702901:web:64261b37324fe92e995a7c"};
 const DEMO_MODE=false;
 let firebaseDB=null,licensesRef=null;
 function initFirebase(){if(firebaseConfig.apiKey==="VOTRE_API_KEY")return false;try{if(!firebase.apps.length)firebase.initializeApp(firebaseConfig);firebaseDB=firebase.database();licensesRef=firebaseDB.ref('licenses');return true;}catch(e){return false;}}
