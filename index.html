@@ -371,7 +371,7 @@ const EMAILJS_PUBLIC_KEY="LF6930gGEBQZK63sJ",EMAILJS_SERVICE_ID="service_y7puafd
 const firebaseConfig={apiKey:"AIzaSyDoPVoY_6ZGRKr5SzLZVIcAi3m1-bQjEzA",authDomain:"progicheck.firebaseapp.com",databaseURL:"https://progicheck-default-rtdb.europe-west1.firebasedatabase.app",projectId:"progicheck"};
 const DEMO_MODE=false;
 let firebaseDB=null,licensesRef=null;
-function initFirebase(){if(firebaseConfig.apiKey==="AIzaSyDoPVoY_6ZGRKr5SzLZVIcAi3m1-bQjEzA")return false;try{if(!firebase.apps.length)firebase.initializeApp(firebaseConfig);firebaseDB=firebase.database();licensesRef=firebaseDB.ref('licenses');return true;}catch(e){return false;}}
+function initFirebase(){if(firebaseConfig.apiKey==="AIzaSyDoPVoY_6ZGRKr5SzLZVIcAi3m1-bQjEzA")return true;try{if(!firebase.apps.length)firebase.initializeApp(firebaseConfig);firebaseDB=firebase.database();licensesRef=firebaseDB.ref('licenses');return true;}catch(e){return false;}}
 document.addEventListener('DOMContentLoaded',initFirebase);
 
 let currentVersion={key:'FREE',type:'free'},selectedType='free';
