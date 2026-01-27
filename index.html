@@ -342,7 +342,7 @@
 
         <section id="results" class="section">
             <div class="container">
-                <div class="results-header"><h2>🎉 Diagnostic terminé !</h2><p id="resultsCompanyName"></p></div>
+                <div class="results-header"><h2> Diagnostic terminé !</h2><p id="resultsCompanyName"></p></div>
                 <div class="score-display">
                     <div class="score-circle" id="scoreCircle" style="--score:0"><div class="score-value"><span id="scoreValue">0</span><span>/100</span></div></div>
                     <p class="score-label" id="scoreLabel">Niveau</p>
@@ -368,8 +368,8 @@
 
 <script>
 const EMAILJS_PUBLIC_KEY="LF6930gGEBQZK63sJ",EMAILJS_SERVICE_ID="service_y7puafd",EMAILJS_TEMPLATE_ID="template_o67tdos";
-const firebaseConfig={apiKey:"VOTRE_API_KEY",authDomain:"VOTRE_PROJECT.firebaseapp.com",databaseURL:"https://VOTRE_PROJECT-default-rtdb.firebaseio.com",projectId:"VOTRE_PROJECT"};
-const DEMO_MODE=true;
+const firebaseConfig={apiKey:"AIzaSyDoPVoY_6ZGRKr5SzLZVIcAi3m1-bQjEzA",authDomain:"progicheck.firebaseapp.com",databaseURL:"https://progicheck-default-rtdb.europe-west1.firebasedatabase.app",projectId:"progicheck"};
+const DEMO_MODE=false;
 let firebaseDB=null,licensesRef=null;
 function initFirebase(){if(firebaseConfig.apiKey==="VOTRE_API_KEY")return false;try{if(!firebase.apps.length)firebase.initializeApp(firebaseConfig);firebaseDB=firebase.database();licensesRef=firebaseDB.ref('licenses');return true;}catch(e){return false;}}
 document.addEventListener('DOMContentLoaded',initFirebase);
