@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProgiCheck by Progress Things — Diagnostic Maturité Numérique</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+    <style>
+        :root{--primary:#1a1a1a;--secondary:#2d2d2d;--accent:#00D4AA;--accent-dark:#00B894;--white:#fff;--gray-100:#f7f7f7;--gray-200:#e5e5e5;--gray-300:#d4d4d4;--gray-400:#a3a3a3;--gray-500:#737373;--danger:#ef4444;--warning:#f59e0b;--success:#10b981;--pro-gold:#FFD700;--standard-blue:#3b82f6}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Inter',sans-serif;background:var(--gray-100);color:var(--primary);line-height:1.6}
+        .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:1rem;padding-top:2rem;overflow-y:auto;-webkit-overflow-scrolling:touch}
+        .modal-overlay.hidden{display:none}
+        .modal{background:var(--white);border-radius:20px;max-width:800px;width:100%;padding:1.5rem;animation:fadeIn .3s;margin:auto 0;max-height:none}
+        .modal h2{font-family:'Space Grotesk',sans-serif;font-size:1.5rem;margin-bottom:.5rem;text-align:center}
+        .modal-subtitle{text-align:center;color:var(--gray-500);margin-bottom:1.5rem;font-size:.9rem}
+        .modal-checkbox{display:flex;align-items:flex-start;gap:.75rem;margin:1.5rem 0;padding:1rem;background:var(--gray-100);border-radius:10px}
+        .modal-checkbox input{width:20px;height:20px;accent-color:var(--accent);cursor:pointer}
+        .modal-checkbox label{font-size:.85rem;color:var(--gray-500);cursor:pointer}
+        .modal-btn{width:100%;padding:1rem;border-radius:50px;font-size:1rem;font-weight:600;cursor:pointer;border:none;transition:all .3s}
+        .modal-btn:disabled{background:var(--gray-300);color:var(--gray-500);cursor:not-allowed}
+        .modal-btn:not(:disabled){background:var(--accent);color:var(--primary)}
+        .modal-btn:not(:disabled):hover{background:var(--accent-dark)}
+        .pricing-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem}
+        @media(max-width:768px){.pricing-cards{grid-template-columns:1fr}}
+        .pricing-card{background:var(--white);border:2px solid var(--gray-200);border-radius:16px;padding:1.25rem;cursor:pointer;transition:all .3s;position:relative}
+        .pricing-card:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(0,0,0,.1)}
+        .pricing-card.selected{border-width:3px}
+        .pricing-card.selected.free{border-color:var(--accent);background:rgba(0,212,170,0.03)}
+        .pricing-card.selected.standard{border-color:var(--standard-blue);background:rgba(59,130,246,0.03)}
+        .pricing-card.selected.pro{border-color:var(--pro-gold);background:rgba(255,215,0,0.05)}
+        .pricing-card.pro::before{content:'RECOMMANDE';position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#FFD700,#FFA500);color:var(--primary);padding:.25rem .75rem;border-radius:50px;font-size:.65rem;font-weight:700}
+        .pricing-icon{font-size:2rem;text-align:center;margin-bottom:.5rem}
+        .pricing-name{font-family:'Space Grotesk',sans-serif;font-size:1.1rem;font-weight:600;text-align:center}
+        .pricing-price{font-family:'Space Grotesk',sans-serif;font-size:1.75rem;font-weight:700;text-align:center}
+        .pricing-price.free{color:var(--accent-dark)}
+        .pricing-price.standard{color:var(--standard-blue)}
+        .pricing-price.pro{color:#d4a000}
+        .pricing-price span{font-size:.7rem;color:var(--gray-400);font-weight:400}
+        .pricing-usd{font-size:.75rem;color:var(--gray-400);text-align:center;margin-bottom:.75rem}
+        .pricing-features{list-style:none;padding:0;margin:0}
+        .pricing-features li{font-size:.72rem;padding:.25rem 0;display:flex;align-items:flex-start;gap:.4rem}
+        .pricing-features li.included{color:var(--gray-600)}
+        .pricing-features li.included::before{content:'\2713';color:var(--success);font-weight:700}
+        .pricing-features li.excluded{color:var(--gray-400)}
+        .pricing-features li.excluded::before{content:'\2717';color:var(--gray-300)}
+        .pricing-features li.highlight{font-weight:600;color:var(--primary)}
+        .key-section{display:none;margin-top:1.5rem;padding:1.5rem;border-radius:12px;border:2px solid var(--gray-200)}
+        .key-section.standard{background:linear-gradient(135deg,#f0f7ff,#fff);border-color:var(--standard-blue)}
+        .key-section.pro{background:linear-gradient(135deg,#FFFEF5,#FFF8E7);border-color:var(--pro-gold)}
+        .key-section.show{display:block}
+        .key-section h3{font-size:1rem;margin-bottom:1rem}
+        .license-input{width:100%;padding:.875rem;font-family:'Space Grotesk',monospace;font-size:1.1rem;text-align:center;text-transform:uppercase;letter-spacing:2px;border:2px solid var(--gray-300);border-radius:10px}
+        .license-input:focus{outline:none;border-color:var(--accent)}
+        .license-input.valid{border-color:var(--success);background:rgba(16,185,129,.05)}
+        .license-input.invalid{border-color:var(--danger);background:rgba(239,68,68,.05)}
+        .license-error{color:var(--danger);font-size:.8rem;margin-top:.5rem;display:none;text-align:center}
+        .license-error.show{display:block}
+        .key-help{margin-top:1rem;padding-top:1rem;border-top:1px solid var(--gray-200);font-size:.8rem;color:var(--gray-500)}
+        .key-help a{color:var(--primary);font-weight:500}
+        header{background:var(--primary);padding:1rem 2rem;position:fixed;top:0;left:0;right:0;z-index:1000;display:flex;justify-content:space-between;align-items:center}
+        .logo{display:flex;align-items:center;gap:.75rem}
+        .logo-icon{width:40px;height:40px}
+        .logo-text{color:var(--white);font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:1.25rem}
+        .logo-text span{color:var(--accent)}
+        .header-pt{color:var(--gray-400);font-size:.8rem;text-decoration:none}
+        .header-pt strong{color:var(--accent)}
+        main{margin-top:72px}
+        .container{max-width:900px;margin:0 auto;padding:2rem 1rem}
+        .section{display:none;animation:fadeIn .4s}
+        .section.active{display:block}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+        .hero{text-align:center;padding:3rem 1rem}
+        .hero-badge{display:inline-block;background:var(--accent);color:var(--primary);padding:.5rem 1rem;border-radius:50px;font-size:.875rem;font-weight:600;margin-bottom:1.5rem}
+        .hero h1{font-family:'Space Grotesk',sans-serif;font-size:2.5rem;font-weight:700;line-height:1.2;margin-bottom:1rem}
+        .hero h1 span{color:var(--accent-dark)}
+        .hero-subtitle{font-size:1.1rem;color:var(--gray-500);max-width:600px;margin:0 auto 2rem}
+        .hero-cta{display:inline-flex;align-items:center;gap:.75rem;background:var(--primary);color:var(--white);padding:1rem 2rem;border-radius:50px;font-size:1.1rem;font-weight:600;cursor:pointer;border:none;transition:all .3s}
+        .hero-cta:hover{background:var(--secondary);transform:translateY(-2px)}
+        .features{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-top:3rem}
+        .feature-card{background:var(--white);padding:1.25rem;border-radius:16px;border:1px solid var(--gray-200);text-align:center}
+        .feature-icon{font-size:2rem;margin-bottom:.5rem}
+        .feature-card h3{font-family:'Space Grotesk',sans-serif;font-size:1rem;font-weight:600}
+        .feature-card p{color:var(--gray-500);font-size:.8rem}
+        .dic-banner{background:linear-gradient(135deg,var(--primary),var(--secondary));padding:2rem;border-radius:20px;margin-top:2rem;color:var(--white)}
+        .dic-banner h3{font-family:'Space Grotesk',sans-serif;font-size:1.25rem;margin-bottom:1rem;text-align:center}
+        .dic-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}
+        @media(max-width:600px){.dic-grid{grid-template-columns:1fr}}
+        .dic-item{text-align:center;padding:1rem;background:rgba(255,255,255,.05);border-radius:12px}
+        .dic-item h4{color:var(--accent);font-size:.9rem}
+        .dic-item p{font-size:.75rem;color:var(--gray-400)}
+        .form-section{max-width:500px;margin:0 auto}
+        .form-header{text-align:center;margin-bottom:2rem}
+        .form-header h2{font-family:'Space Grotesk',sans-serif;font-size:1.75rem}
+        .form-card{background:var(--white);padding:2rem;border-radius:20px;border:1px solid var(--gray-200)}
+        .form-group{margin-bottom:1.25rem}
+        .form-group label{display:block;font-weight:500;margin-bottom:.5rem;font-size:.875rem}
+        .form-group .required{color:var(--danger)}
+        .form-group input,.form-group select{width:100%;padding:.875rem;border:1px solid var(--gray-300);border-radius:10px;font-size:1rem}
+        .form-group input:focus,.form-group select:focus{outline:none;border-color:var(--accent)}
+        .version-badge{display:inline-flex;align-items:center;gap:.5rem;padding:.5rem 1rem;border-radius:50px;font-size:.875rem;font-weight:600;margin-bottom:1rem}
+        .version-badge.free{background:var(--accent);color:var(--primary)}
+        .version-badge.standard{background:var(--standard-blue);color:var(--white)}
+        .version-badge.pro{background:linear-gradient(135deg,#FFD700,#FFA500);color:var(--primary)}
+        .quiz-header{text-align:center;margin-bottom:2rem}
+        .quiz-header h2{font-family:'Space Grotesk',sans-serif;font-size:1.5rem}
+        .progress-container{background:var(--gray-200);height:8px;border-radius:4px;overflow:hidden;margin-bottom:.5rem}
+        .progress-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-dark));transition:width .4s}
+        .progress-text{font-size:.875rem;color:var(--gray-500)}
+        .category-indicator{display:inline-flex;align-items:center;gap:.5rem;background:var(--primary);color:var(--white);padding:.5rem 1rem;border-radius:50px;font-size:.875rem;margin-bottom:1.5rem}
+        .question-card{background:var(--white);padding:2rem;border-radius:20px;border:1px solid var(--gray-200)}
+        .question-dic{display:inline-block;font-size:.7rem;padding:.25rem .6rem;border-radius:4px;margin-bottom:.75rem;background:var(--gray-100);color:var(--gray-500)}
+        .question-text{font-family:'Space Grotesk',sans-serif;font-size:1.2rem;font-weight:600;margin-bottom:1.5rem}
+        .options{display:flex;flex-direction:column;gap:.75rem}
+        .option{display:flex;align-items:center;padding:1rem;border:2px solid var(--gray-200);border-radius:12px;cursor:pointer;transition:all .2s}
+        .option:hover{border-color:var(--accent);background:rgba(0,212,170,.05)}
+        .option.selected{border-color:var(--accent);background:rgba(0,212,170,.1)}
+        .option-radio{width:20px;height:20px;border:2px solid var(--gray-300);border-radius:50%;margin-right:1rem;display:flex;align-items:center;justify-content:center}
+        .option.selected .option-radio{border-color:var(--accent);background:var(--accent)}
+        .option.selected .option-radio::after{content:'';width:8px;height:8px;background:var(--white);border-radius:50%}
+        .option-text{font-size:.9rem}
+        .nav-buttons{display:flex;justify-content:space-between;margin-top:2rem;gap:1rem}
+        .btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.875rem 1.5rem;border-radius:50px;font-size:1rem;font-weight:600;cursor:pointer;border:none;text-decoration:none}
+        .btn-primary{background:var(--primary);color:var(--white)}
+        .btn-primary:hover{background:var(--secondary)}
+        .btn-primary:disabled{background:var(--gray-300);cursor:not-allowed}
+        .btn-secondary{background:var(--white);color:var(--primary);border:1px solid var(--gray-300)}
+        .btn-accent{background:var(--accent);color:var(--primary)}
+        .results-header{text-align:center;margin-bottom:2rem}
+        .results-header h2{font-family:'Space Grotesk',sans-serif;font-size:2rem}
+        .score-display{background:var(--primary);color:var(--white);padding:2.5rem 2rem;border-radius:24px;text-align:center;margin-bottom:2rem}
+        .score-circle{width:150px;height:150px;border-radius:50%;background:conic-gradient(var(--accent) calc(var(--score) * 1%),var(--secondary) 0);display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;position:relative}
+        .score-circle::before{content:'';position:absolute;width:120px;height:120px;background:var(--primary);border-radius:50%}
+        .score-value{position:relative;z-index:1;font-family:'Space Grotesk',sans-serif;font-size:2.5rem;font-weight:700}
+        .score-value span{font-size:1.25rem;color:var(--gray-400)}
+        .score-label{font-size:1.25rem;font-weight:600}
+        .score-description{color:var(--gray-400);font-size:.9rem}
+        .dic-scores{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--secondary)}
+        .dic-score-item{text-align:center}
+        .dic-score-item .label{font-size:.7rem;color:var(--gray-400)}
+        .dic-score-item .value{font-family:'Space Grotesk',sans-serif;font-size:1.25rem;font-weight:700;color:var(--accent)}
+        .chart-container{background:var(--white);padding:2rem;border-radius:20px;border:1px solid var(--gray-200);margin-bottom:2rem}
+        .chart-container h3{font-family:'Space Grotesk',sans-serif;font-size:1.25rem;margin-bottom:1.5rem;text-align:center}
+        #radarChart{max-height:320px}
+        .category-scores{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;margin-bottom:2rem}
+        .category-score-card{background:var(--white);padding:1.25rem;border-radius:16px;border:1px solid var(--gray-200)}
+        .category-score-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem}
+        .category-score-name{font-weight:600;font-size:.9rem}
+        .category-score-value{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:1.1rem}
+        .category-score-value.low{color:var(--danger)}
+        .category-score-value.medium{color:var(--warning)}
+        .category-score-value.high{color:var(--success)}
+        .category-score-bar{height:8px;background:var(--gray-200);border-radius:4px;overflow:hidden;margin-bottom:.5rem}
+        .category-score-fill{height:100%;border-radius:4px}
+        .category-score-fill.low{background:var(--danger)}
+        .category-score-fill.medium{background:var(--warning)}
+        .category-score-fill.high{background:var(--success)}
+        .category-score-desc{font-size:.75rem;color:var(--gray-500)}
+        .download-section{display:flex;justify-content:center;gap:1rem;margin-bottom:2rem;flex-wrap:wrap}
+        .solutions-section{background:linear-gradient(135deg,#1a1a1a,#2d2d2d);padding:2rem;border-radius:20px;margin-bottom:2rem;color:var(--white)}
+        .solutions-section h3{font-family:'Space Grotesk',sans-serif;font-size:1.2rem;margin-bottom:1rem}
+        .solution-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:1.25rem;margin-bottom:1rem}
+        .solution-header{display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem}
+        .solution-icon{width:36px;height:36px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center}
+        .solution-title{font-weight:600}
+        .solution-description{color:var(--gray-400);font-size:.8rem}
+        .recommendations{background:var(--white);padding:2rem;border-radius:20px;border:1px solid var(--gray-200);margin-bottom:2rem}
+        .recommendations h3{font-family:'Space Grotesk',sans-serif;font-size:1.2rem;margin-bottom:1.5rem}
+        .recommendation-item{display:flex;gap:1rem;padding:1rem 0;border-bottom:1px solid var(--gray-200)}
+        .recommendation-item:last-child{border-bottom:none}
+        .recommendation-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center}
+        .recommendation-icon.priority-high{background:rgba(239,68,68,.1)}
+        .recommendation-icon.priority-medium{background:rgba(245,158,11,.1)}
+        .recommendation-content h4{font-size:.9rem;font-weight:600}
+        .recommendation-content p{font-size:.8rem;color:var(--gray-500)}
+        .recommendation-content .pt-solution{color:var(--accent-dark);font-size:.75rem;font-weight:600;margin-top:.5rem}
+        .results-cta{background:linear-gradient(135deg,var(--accent),var(--accent-dark));padding:2rem;border-radius:20px;text-align:center;color:var(--primary)}
+        .results-cta h3{font-family:'Space Grotesk',sans-serif;font-size:1.4rem}
+        .results-cta p{color:var(--secondary);margin-bottom:1rem;font-size:.9rem}
+        .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--primary);color:var(--white);padding:1rem 1.5rem;border-radius:12px;z-index:2000;display:none}
+        .toast.show{display:flex}
+        .toast.success{background:var(--success)}
+        footer{background:var(--primary);color:var(--white);padding:2rem;text-align:center}
+        footer p{color:var(--gray-400);font-size:.85rem;margin-bottom:.5rem}
+        footer a{color:var(--accent)}
+        .footer-tagline{color:var(--accent);font-weight:600;margin-top:.75rem}
+    </style>
+</head>
+<body>
+    <div class="modal-overlay" id="consentModal">
+        <div class="modal" style="max-width:520px">
+            <h2> Protection de vos données</h2>
+            <p style="color:var(--gray-500);text-align:center;margin-bottom:1rem">Bienvenue sur <strong>ProgiCheck</strong> !</p>
+            <ul style="color:var(--gray-500);font-size:.85rem;margin:1rem 0 1rem 1.5rem">
+                <li>Données sécurisées, jamais revendues</li>
+                <li>Progress Things pourra vous accompagner</li>
+                <li>Droits: <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="ccb8a9afa4a2a5bdb9a9e2aeaa8cbcbea3abbea9bfbfb8a4a5a2abbfe2afa3a1">[email&#160;protected]</a></li>
+            </ul>
+            <div class="modal-checkbox"><input type="checkbox" id="consentCheck"><label for="consentCheck">J'accepte le traitement de mes données par <strong>Progress Things</strong>.</label></div>
+            <button class="modal-btn" id="consentBtn" disabled onclick="acceptConsent()">Accepter et continuer</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay hidden" id="versionModal">
+        <div class="modal">
+            <h2> Choisissez votre formule</h2>
+            <p class="modal-subtitle">Sélectionnez la version adaptée à vos besoins</p>
+            
+            <div class="pricing-cards">
+                <div class="pricing-card selected free" id="cardFree" onclick="selectVersion('free')">
+                    <div class="pricing-icon"></div>
+                    <div class="pricing-name">Gratuit</div>
+                    <div class="pricing-price free">0 <span>FCFA</span></div>
+                    <div class="pricing-usd">Accès immédiat</div>
+                    <ul class="pricing-features">
+                        <li class="included">27 questions / 9 catégories</li>
+                        <li class="included">Score global + DIC</li>
+                        <li class="included">Graphique radar</li>
+                        <li class="included">PDF résumé (3 pages)</li>
+                        <li class="excluded">Détail des réponses</li>
+                        <li class="excluded">Accompagnement expert</li>
+                    </ul>
+                </div>
+                
+                <div class="pricing-card" id="cardStandard" onclick="selectVersion('standard')">
+                    <div class="pricing-icon"></div>
+                    <div class="pricing-name">Standard</div>
+                    <div class="pricing-price standard">5 000 <span>FCFA</span></div>
+                    <div class="pricing-usd">≈ 8 USD</div>
+                    <ul class="pricing-features">
+                        <li class="included">Tout le gratuit +</li>
+                        <li class="included highlight">PDF complet (6+ pages)</li>
+                        <li class="included highlight">Détail 27 réponses</li>
+                        <li class="included highlight">Analyse DIC détaillée</li>
+                        <li class="included highlight">Statistiques</li>
+                        <li class="excluded">Accompagnement expert</li>
+                    </ul>
+                </div>
+                
+                <div class="pricing-card pro" id="cardPro" onclick="selectVersion('pro')">
+                    <div class="pricing-icon"></div>
+                    <div class="pricing-name">Pro</div>
+                    <div class="pricing-price pro">25 000 <span>FCFA</span></div>
+                    <div class="pricing-usd">≈ 40 USD</div>
+                    <ul class="pricing-features">
+                        <li class="included">Tout le Standard +</li>
+                        <li class="included highlight">Rapport personnalisé expert</li>
+                        <li class="included highlight">Plan 90 jours sur mesure</li>
+                        <li class="included highlight">Document technique</li>
+                        <li class="included highlight">Appel conseil 30min</li>
+                        <li class="included highlight">Livraison 48-72h</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div id="keySection" class="key-section">
+                <h3><span id="keyIcon"></span> <span id="keyTitle">Clé Standard</span></h3>
+                <input type="text" class="license-input" id="licenseInput" placeholder="XXXX-XXXX-XXXX" maxlength="14" autocomplete="off">
+                <p class="license-error" id="licenseError">Clé invalide ou déjà utilisée.</p>
+                <button class="modal-btn" style="margin-top:1rem" onclick="validateKey()">Activer ma clé</button>
+                <div class="key-help">
+                    <p>Pas encore de clé ? Contactez-nous :</p>
+                    <p><a href="https://www.progressthings.com" target="_blank">💬 Chat</a> · <a href="/cdn-cgi/l/email-protection#364253555e585f474353185450764644595144534545425e5f5851451855595b094543545c5355420b6d664459515f755e53555d6b1672535b5758525316525316555af59f">📧 Email</a></p>
+                </div>
+            </div>
+            
+            <button class="modal-btn" id="continueBtn" style="margin-top:1rem" onclick="continueWithVersion()">Continuer gratuitement →</button>
+        </div>
+    </div>
+
+    <header>
+        <div class="logo">
+            <div class="logo-icon"><svg viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="45" stroke="#00D4AA" stroke-width="3" fill="none"/><circle cx="50" cy="50" r="30" stroke="#00D4AA" stroke-width="2" fill="none"/><circle cx="50" cy="50" r="15" stroke="#00D4AA" stroke-width="2" fill="none"/><circle cx="50" cy="50" r="5" fill="#00D4AA"/></svg></div>
+            <div class="logo-text">Progi<span>Check</span></div>
+        </div>
+        <a href="https://www.progressthings.com" target="_blank" class="header-pt">by <strong>Progress Things</strong></a>
+    </header>
+
+    <main>
+        <section id="home" class="section active">
+            <div class="container">
+                <div class="hero">
+                    <div class="hero-badge"> Diagnostic complet en 9 catégories</div>
+                    <h1>Évaluez la <span>maturité numérique</span> de votre entreprise</h1>
+                    <p class="hero-subtitle">Un diagnostic professionnel basé sur les critères DIC pour les TPE et PME.</p>
+                    <button class="hero-cta" onclick="showVersionModal()"> Commencer le diagnostic</button>
+                    <div class="features">
+                        <div class="feature-card"><div class="feature-icon"></div><h3>12 minutes</h3><p>27 questions</p></div>
+                        <div class="feature-card"><div class="feature-icon"></div><h3>9 catégories</h3><p>Analyse complète</p></div>
+                        <div class="feature-card"><div class="feature-icon"></div><h3>Approche DIC</h3><p>Méthodologie pro</p></div>
+                        <div class="feature-card"><div class="feature-icon"></div><h3>Rapport PDF</h3><p>Téléchargeable</p></div>
+                    </div>
+                    <div class="dic-banner">
+                        <h3> Méthodologie DIC</h3>
+                        <div class="dic-grid">
+                            <div class="dic-item"><h4>🟢 Disponibilité</h4><p>Systèmes accessibles</p></div>
+                            <div class="dic-item"><h4>🔵 Intégrité</h4><p>Données protégées</p></div>
+                            <div class="dic-item"><h4>🟣 Confidentialité</h4><p>Accès contrôlés</p></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="lead-form" class="section">
+            <div class="container">
+                <div class="form-section">
+                    <div style="text-align:center"><div class="version-badge" id="versionBadge"> Version Gratuite</div></div>
+                    <div class="form-header"><h2>📝 Vos informations</h2></div>
+                    <div class="form-card">
+                        <form id="leadForm">
+                            <div class="form-group"><label>Entreprise <span class="required">*</span></label><input type="text" id="companyName" required placeholder="SARL Exemple"></div>
+                            <div class="form-group"><label>Votre nom <span class="required">*</span></label><input type="text" id="contactName" required></div>
+                            <div class="form-group"><label>Email <span class="required">*</span></label><input type="email" id="contactEmail" required></div>
+                            <div class="form-group"><label>Téléphone</label><input type="tel" id="contactPhone"></div>
+                            <div class="form-group"><label>Secteur <span class="required">*</span></label><select id="sector" required><option value="">Sélectionnez</option><option>Commerce</option><option>Services</option><option>Industrie</option><option>Finance</option><option>Santé</option><option>Éducation</option><option>ONG</option><option>IT</option><option>BTP</option><option>Transport</option><option>Autre</option></select></div>
+                            <div class="form-group"><label>Employés <span class="required">*</span></label><select id="employees" required><option value="">Sélectionnez</option><option>1-10</option><option>11-50</option><option>51-200</option><option>200+</option></select></div>
+                            <div class="nav-buttons"><button type="button" class="btn btn-secondary" onclick="showVersionModal()">← Retour</button><button type="submit" class="btn btn-primary">Commencer →</button></div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="quiz" class="section">
+            <div class="container">
+                <div class="quiz-header"><h2>Diagnostic en cours</h2><div class="progress-container"><div class="progress-bar" id="progressBar"></div></div><p class="progress-text"><span id="currentQuestion">1</span>/<span id="totalQuestions">27</span></p></div>
+                <div style="text-align:center"><div class="category-indicator"><span id="categoryIcon"></span> <span id="categoryName">Infrastructure</span></div></div>
+                <div class="question-card">
+                    <div class="question-dic" id="questionDic">Disponibilité</div>
+                    <p class="question-text" id="questionText">Chargement...</p>
+                    <div class="options" id="optionsContainer"></div>
+                </div>
+                <div class="nav-buttons"><button class="btn btn-secondary" id="prevBtn" onclick="previousQuestion()" disabled>← Précédent</button><button class="btn btn-primary" id="nextBtn" onclick="nextQuestion()" disabled>Suivant →</button></div>
+            </div>
+        </section>
+
+        <section id="results" class="section">
+            <div class="container">
+                <div class="results-header"><h2>🎉 Diagnostic terminé !</h2><p id="resultsCompanyName"></p></div>
+                <div class="score-display">
+                    <div class="score-circle" id="scoreCircle" style="--score:0"><div class="score-value"><span id="scoreValue">0</span><span>/100</span></div></div>
+                    <p class="score-label" id="scoreLabel">Niveau</p>
+                    <p class="score-description" id="scoreDescription"></p>
+                    <div class="dic-scores">
+                        <div class="dic-score-item"><div class="label">🟢 Disponibilité</div><div class="value" id="dicDisp">0%</div></div>
+                        <div class="dic-score-item"><div class="label">🔵 Intégrité</div><div class="value" id="dicInt">0%</div></div>
+                        <div class="dic-score-item"><div class="label">🟣 Confidentialité</div><div class="value" id="dicConf">0%</div></div>
+                    </div>
+                </div>
+                <div class="download-section"><button class="btn btn-accent" onclick="downloadPDF()"> Télécharger PDF</button><button class="btn btn-secondary" onclick="location.reload()"> Nouveau</button></div>
+                <div class="chart-container"><h3> Analyse par catégorie</h3><canvas id="radarChart"></canvas></div>
+                <div class="category-scores" id="categoryScores"></div>
+                <div class="solutions-section"><h3>🛠️ Solutions Progress Things</h3><div id="solutionsList"></div></div>
+                <div class="recommendations"><h3>📋 Recommandations</h3><div id="recommendationsList"></div></div>
+                <div class="results-cta"><h3>Besoin d'accompagnement ?</h3><p>Nos experts sont là pour vous.</p><a href="https://www.progressthings.com" target="_blank" class="btn" style="background:var(--primary);color:var(--white)">Contacter Progress Things →</a></div>
+            </div>
+        </section>
+    </main>
+
+    <div class="toast" id="toast"><span id="toastMessage"></span></div>
+    <footer><p style="font-size:1.1rem;font-weight:600">Progi<span style="color:#00D4AA">Check</span></p><p>by <a href="https://www.progressthings.com">Progress Things</a></p><p class="footer-tagline">Let's do it together</p></footer>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+const EMAILJS_PUBLIC_KEY="LF6930gGEBQZK63sJ",EMAILJS_SERVICE_ID="service_y7puafd",EMAILJS_TEMPLATE_ID="template_o67tdos";
+const firebaseConfig={apiKey:"AIzaSyDoPVoY_6ZGRKr5SzLZVIcAi3m1-bQjEzA",authDomain:"progicheck.firebaseapp.com",databaseURL:"https://progicheck-default-rtdb.europe-west1.firebasedatabase.app",projectId:"progicheck",storageBucket:"progicheck.firebasestorage.app",messagingSenderId:"739734702901",appId:"1:739734702901:web:64261b37324fe92e995a7c"};
+const DEMO_MODE=false;
+let firebaseDB=null,licensesRef=null;
+function initFirebase(){if(firebaseConfig.apiKey==="VOTRE_API_KEY")return false;try{if(!firebase.apps.length)firebase.initializeApp(firebaseConfig);firebaseDB=firebase.database();licensesRef=firebaseDB.ref('licenses');return true;}catch(e){return false;}}
+document.addEventListener('DOMContentLoaded',initFirebase);
+
+let currentVersion={key:'FREE',type:'free'},selectedType='free';
+document.getElementById('consentCheck').addEventListener('change',function(){document.getElementById('consentBtn').disabled=!this.checked;});
+function acceptConsent(){document.getElementById('consentModal').classList.add('hidden');document.getElementById('versionModal').classList.remove('hidden');localStorage.setItem('progicheck_consent','true');}
+if(localStorage.getItem('progicheck_consent')==='true')document.getElementById('consentModal').classList.add('hidden');
+function showVersionModal(){document.getElementById('versionModal').classList.remove('hidden');}
+
+function selectVersion(type){
+    selectedType=type;
+    ['cardFree','cardStandard','cardPro'].forEach(id=>{document.getElementById(id).classList.remove('selected','free','standard','pro');});
+    document.getElementById('card'+type.charAt(0).toUpperCase()+type.slice(1)).classList.add('selected',type);
+    const ks=document.getElementById('keySection'),btn=document.getElementById('continueBtn');
+    if(type==='free'){ks.classList.remove('show','standard','pro');btn.textContent='Continuer gratuitement →';btn.style.background='var(--accent)';}
+    else{ks.className='key-section show '+type;document.getElementById('keyIcon').textContent=type==='pro'?'':'';document.getElementById('keyTitle').textContent='Clé '+(type==='pro'?'Pro':'Standard');btn.textContent='Entrez votre clé ci-dessus ↑';btn.style.background='var(--gray-300)';}
+}
+
+function continueWithVersion(){if(selectedType!=='free'){document.getElementById('licenseInput').focus();return;}currentVersion={key:'FREE',type:'free'};document.getElementById('versionModal').classList.add('hidden');updateVersionBadge();showSection('lead-form');showToast('Version gratuite activée!','success');}
+
+document.getElementById('licenseInput').addEventListener('input',function(){let v=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'').substring(0,12);let f='';for(let i=0;i<v.length;i++){if(i>0&&i%4===0)f+='-';f+=v[i];}this.value=f;this.classList.remove('valid','invalid');document.getElementById('licenseError').classList.remove('show');});
+
+function validateKey(){
+    const input=document.getElementById('licenseInput'),key=input.value.trim().toUpperCase();
+    if(!/^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(key)){input.classList.add('invalid');document.getElementById('licenseError').textContent='Format: XXXX-XXXX-XXXX';document.getElementById('licenseError').classList.add('show');return;}
+    if(DEMO_MODE||!licensesRef){currentVersion={key:key,type:selectedType};input.classList.add('valid');setTimeout(()=>{document.getElementById('versionModal').classList.add('hidden');updateVersionBadge();showSection('lead-form');showToast((selectedType==='pro'?' Pro':' Standard')+' activé!','success');},400);return;}
+    licensesRef.child(key.replace(/-/g,'')).once('value').then(snap=>{const d=snap.val();if(!d||d.status==='used'){input.classList.add('invalid');document.getElementById('licenseError').textContent=d?'Clé déjà utilisée':'Clé invalide';document.getElementById('licenseError').classList.add('show');return;}currentVersion={key:key,type:d.type,firebaseId:key.replace(/-/g,'')};input.classList.add('valid');setTimeout(()=>{document.getElementById('versionModal').classList.add('hidden');updateVersionBadge();showSection('lead-form');showToast('Clé activée!','success');},400);}).catch(()=>{input.classList.add('invalid');document.getElementById('licenseError').textContent='Erreur';document.getElementById('licenseError').classList.add('show');});
+}
+
+function updateVersionBadge(){const b=document.getElementById('versionBadge');if(currentVersion.type==='pro'){b.className='version-badge pro';b.textContent=' Version Pro';}else if(currentVersion.type==='standard'){b.className='version-badge standard';b.textContent=' Version Standard';}else{b.className='version-badge free';b.textContent=' Version Gratuite';}}
+
+const categories=[
+{id:'infrastructure',name:'Infrastructure IT',icon:'',pdfName:'Infrastructure',questions:[{text:"État de vos équipements informatiques ?",dic:"Disponibilité",options:[{text:"Très anciens (+7 ans), pannes",score:0},{text:"Anciens (5-7 ans)",score:1},{text:"Corrects (3-5 ans)",score:2},{text:"Récents (-3 ans)",score:3}]},{text:"Organisation réseau ?",dic:"Disponibilité",options:[{text:"Pas structuré",score:0},{text:"Basique",score:1},{text:"Structuré",score:2},{text:"Segmenté, documenté",score:3}]},{text:"Contrat maintenance ?",dic:"Disponibilité",options:[{text:"Non",score:0},{text:"Au besoin",score:1},{text:"Curatif",score:2},{text:"Préventif SLA",score:3}]}]},
+{id:'cybersecurity',name:'Cybersécurité',icon:'',pdfName:'Cybersecurite',questions:[{text:"Protection postes ?",dic:"Intégrité",options:[{text:"Aucune/expiré",score:0},{text:"Gratuit",score:1},{text:"Payant",score:2},{text:"EDR/XDR",score:3}]},{text:"Sauvegardes ?",dic:"Intégrité",options:[{text:"Aucune",score:0},{text:"Manuelle USB",score:1},{text:"Auto locale",score:2},{text:"3-2-1 cloud",score:3}]},{text:"Sensibilisation phishing ?",dic:"Confidentialité",options:[{text:"Jamais",score:0},{text:"Informel",score:1},{text:"Formation",score:2},{text:"Programme+tests",score:3}]}]},
+{id:'physical_security',name:'Sécurité Physique',icon:'',pdfName:'Securite Physique',questions:[{text:"Vidéosurveillance ?",dic:"Confidentialité",options:[{text:"Non",score:0},{text:"Non fonctionnel",score:1},{text:"Local",score:2},{text:"IP sécurisé",score:3}]},{text:"Contrôle accès ?",dic:"Confidentialité",options:[{text:"Ouvert",score:0},{text:"Clés",score:1},{text:"Badges",score:2},{text:"Badges+traçabilité",score:3}]},{text:"Alarme ?",dic:"Disponibilité",options:[{text:"Non",score:0},{text:"Basique",score:1},{text:"Connectée",score:2},{text:"Télésurveillance",score:3}]}]},
+{id:'continuity',name:'Continuité',icon:'',pdfName:'Continuite',questions:[{text:"Protection électrique ?",dic:"Disponibilité",options:[{text:"Aucune",score:0},{text:"Onduleurs partiels",score:1},{text:"Onduleurs critiques",score:2},{text:"Central+groupe",score:3}]},{text:"Autonomie coupure ?",dic:"Disponibilité",options:[{text:"Aucune",score:0},{text:"<10min",score:1},{text:"10-30min",score:2},{text:"+30min",score:3}]},{text:"PCA ?",dic:"Disponibilité",options:[{text:"Non",score:0},{text:"Informel",score:1},{text:"Basique",score:2},{text:"Testé",score:3}]}]},
+{id:'data_recovery',name:'Données',icon:'',pdfName:'Donnees',questions:[{text:"Stockage données ?",dic:"Intégrité",options:[{text:"Dispersé",score:0},{text:"Partagé",score:1},{text:"Serveur/NAS",score:2},{text:"BDD/ERP",score:3}]},{text:"PRA ?",dic:"Disponibilité",options:[{text:"Non",score:0},{text:"Idée",score:1},{text:"Non testé",score:2},{text:"Testé",score:3}]},{text:"Temps reprise ?",dic:"Disponibilité",options:[{text:"Jours",score:0},{text:"1-2 jours",score:1},{text:"Heures",score:2},{text:"<1h",score:3}]}]},
+{id:'collaboration',name:'Collaboration',icon:'',pdfName:'Collaboration',questions:[{text:"Messagerie ?",dic:"Confidentialité",options:[{text:"Perso Gmail",score:0},{text:"Gmail pro",score:1},{text:"Email pro",score:2},{text:"M365/Workspace",score:3}]},{text:"Partage fichiers ?",dic:"Intégrité",options:[{text:"USB",score:0},{text:"WhatsApp",score:1},{text:"Drive basique",score:2},{text:"OneDrive+droits",score:3}]},{text:"Communication équipe ?",dic:"Disponibilité",options:[{text:"Tel/SMS",score:0},{text:"WhatsApp",score:1},{text:"Zoom occasionnel",score:2},{text:"Teams quotidien",score:3}]}]},
+{id:'digital_presence',name:'Présence digitale',icon:'',pdfName:'Digital',questions:[{text:"Site web ?",dic:"Disponibilité",options:[{text:"Non",score:0},{text:"Facebook",score:1},{text:"Vitrine",score:2},{text:"Pro responsive",score:3}]},{text:"Réseaux sociaux ?",dic:"Disponibilité",options:[{text:"Aucun",score:0},{text:"Inactifs",score:1},{text:"Irrégulier",score:2},{text:"Stratégie",score:3}]},{text:"Contact en ligne ?",dic:"Disponibilité",options:[{text:"Téléphone",score:0},{text:"Email",score:1},{text:"Formulaire",score:2},{text:"Multi-canaux",score:3}]}]},
+{id:'skills',name:'Compétences',icon:'',pdfName:'Competences',questions:[{text:"Niveau IT employés ?",dic:"Intégrité",options:[{text:"Très basique",score:0},{text:"Basique",score:1},{text:"Correct",score:2},{text:"Bon",score:3}]},{text:"Formations IT ?",dic:"Intégrité",options:[{text:"Jamais",score:0},{text:"Rare",score:1},{text:"Occasionnel",score:2},{text:"Régulier",score:3}]},{text:"Support IT ?",dic:"Disponibilité",options:[{text:"Débrouille",score:0},{text:"Collègue",score:1},{text:"Prestataire",score:2},{text:"Support dédié",score:3}]}]},
+{id:'identity',name:'Identités',icon:'',pdfName:'Identites',questions:[{text:"Comptes utilisateurs ?",dic:"Confidentialité",options:[{text:"Partagés",score:0},{text:"Individuels",score:1},{text:"Procédure",score:2},{text:"AD centralisé",score:3}]},{text:"Droits accès ?",dic:"Confidentialité",options:[{text:"Tous à tout",score:0},{text:"Informel",score:1},{text:"Par service",score:2},{text:"Moindre privilège",score:3}]},{text:"MFA ?",dic:"Confidentialité",options:[{text:"Non inconnu",score:0},{text:"Non connu",score:1},{text:"Partiel",score:2},{text:"Obligatoire",score:3}]}]}
+];
+
+const ptSolutions={infrastructure:{name:"Support IT",icon:""},cybersecurity:{name:"ESET",icon:""},physical_security:{name:"Vidéosurveillance",icon:""},continuity:{name:"Continuité",icon:""},data_recovery:{name:"Backup",icon:""},collaboration:{name:"M365",icon:""},digital_presence:{name:"Digital",icon:""},skills:{name:"Formations",icon:""},identity:{name:"IAM",icon:""}};
+const levelDescriptions={beginner:{label:"🔴 Débutant",pdfLabel:"Debutant",desc:"Fort potentiel."},developing:{label:"🟠 En développement",pdfLabel:"Developpement",desc:"Bases posées."},intermediate:{label:"🟡 Intermédiaire",pdfLabel:"Intermediaire",desc:"Bonne maturité."},advanced:{label:"🟢 Avancé",pdfLabel:"Avance",desc:"IT structurée."},expert:{label:"🏆 Expert",pdfLabel:"Expert",desc:"Excellente!"}};
+
+let currentQuestionIndex=0,answers=[],leadData={};
+const totalQuestions=categories.reduce((s,c)=>s+c.questions.length,0);
+function showToast(m,t='info'){const e=document.getElementById('toast');document.getElementById('toastMessage').textContent=m;e.className='toast show '+t;setTimeout(()=>e.classList.remove('show'),3000);}
+function showSection(id){document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');window.scrollTo(0,0);}
+
+document.getElementById('leadForm').addEventListener('submit',function(e){e.preventDefault();leadData={companyName:document.getElementById('companyName').value,contactName:document.getElementById('contactName').value,contactEmail:document.getElementById('contactEmail').value,contactPhone:document.getElementById('contactPhone').value||'N/A',sector:document.getElementById('sector').value,employees:document.getElementById('employees').value,date:new Date().toLocaleDateString('fr-FR'),version:currentVersion};currentQuestionIndex=0;answers=new Array(totalQuestions).fill(null);document.getElementById('totalQuestions').textContent=totalQuestions;showSection('quiz');displayQuestion();});
+
+function getQuestionData(idx){let c=0;for(let cat of categories){for(let q of cat.questions){if(c===idx)return{category:cat,question:q};c++;}}return null;}
+function displayQuestion(){const d=getQuestionData(currentQuestionIndex);if(!d)return;document.getElementById('categoryIcon').textContent=d.category.icon;document.getElementById('categoryName').textContent=d.category.name;document.getElementById('questionText').textContent=d.question.text;document.getElementById('questionDic').textContent=d.question.dic;const cont=document.getElementById('optionsContainer');cont.innerHTML='';d.question.options.forEach((o,i)=>{const div=document.createElement('div');div.className='option'+(answers[currentQuestionIndex]===i?' selected':'');div.onclick=()=>selectOption(i);div.innerHTML='<div class="option-radio"></div><span class="option-text">'+o.text+'</span>';cont.appendChild(div);});document.getElementById('progressBar').style.width=((currentQuestionIndex+1)/totalQuestions*100)+'%';document.getElementById('currentQuestion').textContent=currentQuestionIndex+1;document.getElementById('prevBtn').disabled=currentQuestionIndex===0;updateNextButton();}
+function selectOption(i){answers[currentQuestionIndex]=i;document.querySelectorAll('.option').forEach((o,idx)=>o.classList.toggle('selected',idx===i));updateNextButton();}
+function updateNextButton(){const b=document.getElementById('nextBtn');b.disabled=answers[currentQuestionIndex]===null;b.textContent=currentQuestionIndex===totalQuestions-1?'Voir résultats →':'Suivant →';}
+function nextQuestion(){if(answers[currentQuestionIndex]===null)return;if(currentQuestionIndex<totalQuestions-1){currentQuestionIndex++;displayQuestion();}else{calculateResults();}}
+function previousQuestion(){if(currentQuestionIndex>0){currentQuestionIndex--;displayQuestion();}}
+
+function calculateResults(){
+    const catScores={},dicScores={'Disponibilité':[],'Intégrité':[],'Confidentialité':[]};let qIdx=0;
+    categories.forEach(cat=>{let s=0,m=cat.questions.length*3;cat.questions.forEach(q=>{if(answers[qIdx]!==null){const sc=q.options[answers[qIdx]].score;s+=sc;dicScores[q.dic].push(sc/3*100);}qIdx++;});catScores[cat.id]={name:cat.name,pdfName:cat.pdfName,icon:cat.icon,score:Math.round(s/m*100)};});
+    const total=Math.round(Object.values(catScores).reduce((s,c)=>s+c.score,0)/categories.length);
+    const dicFinal={disponibilite:Math.round(dicScores['Disponibilité'].reduce((a,b)=>a+b,0)/dicScores['Disponibilité'].length),integrite:Math.round(dicScores['Intégrité'].reduce((a,b)=>a+b,0)/dicScores['Intégrité'].length),confidentialite:Math.round(dicScores['Confidentialité'].reduce((a,b)=>a+b,0)/dicScores['Confidentialité'].length)};
+    if(licensesRef&&currentVersion.firebaseId){licensesRef.child(currentVersion.firebaseId).update({status:'used',usedAt:new Date().toISOString(),usedBy:leadData.companyName,score:total});}
+    displayResults(total,catScores,dicFinal);sendEmail(total,catScores,dicFinal);
+}
+
+function getLevel(s){if(s<30)return'beginner';if(s<50)return'developing';if(s<70)return'intermediate';if(s<90)return'advanced';return'expert';}
+function getInterp(id,s){const i={infrastructure:{l:"Modernisation urgente",m:"Correcte",h:"Bonne"},cybersecurity:{l:"Vulnérable",m:"Partielle",h:"Bonne"},physical_security:{l:"Insuffisante",m:"Partielle",h:"Bonne"},continuity:{l:"Aucune résilience",m:"Partielle",h:"Bonne"},data_recovery:{l:"Risque perte",m:"Partiel",h:"Bonne"},collaboration:{l:"Inadaptés",m:"Sous-utilisés",h:"Efficace"},digital_presence:{l:"Invisible",m:"Basique",h:"Bonne"},skills:{l:"Insuffisantes",m:"Correctes",h:"Compétentes"},identity:{l:"Chaotique",m:"Partielle",h:"Bonne"}};return i[id]?.[s<40?'l':s<70?'m':'h']||"";}
+
+function sendEmail(score,catScores,dicFinal){let allAnswers='',qNum=1,qIdx=0;categories.forEach(cat=>{allAnswers+='\n--- '+cat.pdfName+' ('+catScores[cat.id].score+'%) ---\n';cat.questions.forEach(q=>{const sel=answers[qIdx];allAnswers+='Q'+qNum+'. '+q.text+'\n> '+(sel!==null?q.options[sel].text+' ('+q.options[sel].score+'/3)':'N/A')+'\n';qNum++;qIdx++;});});const data={subject:'[ProgiCheck] '+leadData.companyName+' - '+score+'/100 - '+currentVersion.type.toUpperCase(),company_name:leadData.companyName,contact_name:leadData.contactName,contact_email:leadData.contactEmail,contact_phone:leadData.contactPhone,sector:leadData.sector,employees:leadData.employees,version:currentVersion.type.toUpperCase(),license_key:currentVersion.key,date:leadData.date,score:score,level:levelDescriptions[getLevel(score)].pdfLabel,dic_disponibilite:dicFinal.disponibilite+'%',dic_integrite:dicFinal.integrite+'%',dic_confidentialite:dicFinal.confidentialite+'%',category_scores:Object.entries(catScores).map(([id,c])=>c.pdfName+':'+c.score+'%').join(' | '),all_answers:allAnswers};if(EMAILJS_PUBLIC_KEY){emailjs.init(EMAILJS_PUBLIC_KEY);emailjs.send(EMAILJS_SERVICE_ID,EMAILJS_TEMPLATE_ID,data).catch(e=>console.error(e));}console.log('DIAGNOSTIC:',data);}
+
+function displayResults(total,catScores,dicFinal){showSection('results');document.getElementById('resultsCompanyName').textContent=leadData.companyName;document.getElementById('dicDisp').textContent=dicFinal.disponibilite+'%';document.getElementById('dicInt').textContent=dicFinal.integrite+'%';document.getElementById('dicConf').textContent=dicFinal.confidentialite+'%';const circle=document.getElementById('scoreCircle'),val=document.getElementById('scoreValue');let cur=0;const anim=setInterval(()=>{if(cur>=total)clearInterval(anim);else{cur++;val.textContent=cur;circle.style.setProperty('--score',cur);}},20);const level=getLevel(total),levelInfo=levelDescriptions[level];document.getElementById('scoreLabel').textContent=levelInfo.label;document.getElementById('scoreDescription').textContent=levelInfo.desc;const scCont=document.getElementById('categoryScores');scCont.innerHTML='';Object.entries(catScores).forEach(([id,c])=>{const lv=c.score<40?'low':c.score<70?'medium':'high';scCont.innerHTML+='<div class="category-score-card"><div class="category-score-header"><span class="category-score-name">'+c.icon+' '+c.name+'</span><span class="category-score-value '+lv+'">'+c.score+'%</span></div><div class="category-score-bar"><div class="category-score-fill '+lv+'" style="width:'+c.score+'%"></div></div><p class="category-score-desc">'+getInterp(id,c.score)+'</p></div>';});createRadarChart(catScores);generateSolutions(catScores);generateRecs(catScores);window.resultsData={totalScore:total,categoryScores:catScores,dicFinal,level,levelInfo};}
+
+function createRadarChart(catScores){const ctx=document.getElementById('radarChart').getContext('2d');if(window.radarChartInstance)window.radarChartInstance.destroy();window.radarChartInstance=new Chart(ctx,{type:'radar',data:{labels:Object.values(catScores).map(c=>c.pdfName),datasets:[{label:'Score',data:Object.values(catScores).map(c=>c.score),backgroundColor:'rgba(0,212,170,0.2)',borderColor:'#00D4AA',borderWidth:2,pointBackgroundColor:'#00D4AA'}]},options:{responsive:true,scales:{r:{beginAtZero:true,max:100,ticks:{stepSize:20}}},plugins:{legend:{display:false}}}});}
+
+function generateSolutions(catScores){const cont=document.getElementById('solutionsList');cont.innerHTML='';Object.entries(catScores).sort((a,b)=>a[1].score-b[1].score).filter(([id,c])=>c.score<70).slice(0,4).forEach(([id])=>{const sol=ptSolutions[id];if(sol)cont.innerHTML+='<div class="solution-card"><div class="solution-header"><div class="solution-icon">'+sol.icon+'</div><div class="solution-title">'+sol.name+'</div></div></div>';});if(!cont.innerHTML)cont.innerHTML='<div class="solution-card"><div class="solution-header"><div class="solution-icon">🏆</div><div class="solution-title">Félicitations!</div></div></div>';}
+
+function generateRecs(catScores){const cont=document.getElementById('recommendationsList');cont.innerHTML='';Object.entries(catScores).filter(([id,c])=>c.score<70).sort((a,b)=>a[1].score-b[1].score).slice(0,5).forEach(([id,c])=>{const p=c.score<40?'high':'medium',sol=ptSolutions[id];cont.innerHTML+='<div class="recommendation-item"><div class="recommendation-icon priority-'+p+'">'+c.icon+'</div><div class="recommendation-content"><h4>'+c.name+'</h4><p>'+getInterp(id,c.score)+'</p>'+(sol?'<div class="pt-solution">→ '+sol.name+'</div>':'')+'</div></div>';});if(!cont.innerHTML)cont.innerHTML='<div class="recommendation-item"><div class="recommendation-icon" style="background:rgba(16,185,129,.1)">🏆</div><div class="recommendation-content"><h4>Excellent!</h4><p>Continuez ainsi.</p></div></div>';}
+
+function downloadPDF(){
+    const d=window.resultsData;if(!d)return;
+    const{jsPDF}=window.jspdf;const doc=new jsPDF();
+    const pw=doc.internal.pageSize.getWidth(),ph=doc.internal.pageSize.getHeight();
+    let y=15,pageNum=1;const vType=currentVersion.type;const showDetails=vType==='standard'||vType==='pro';
+    
+    const footer=()=>{doc.setFillColor(26,26,26);doc.rect(0,ph-10,pw,10,'F');doc.setTextColor(255,255,255);doc.setFontSize(7);doc.text('ProgiCheck - Progress Things - Page '+pageNum,pw/2,ph-4,{align:'center'});};
+    const header=(t)=>{doc.setFillColor(26,26,26);doc.rect(0,0,pw,12,'F');doc.setTextColor(0,212,170);doc.setFontSize(9);doc.setFont('helvetica','bold');doc.text('ProgiCheck',10,8);doc.setTextColor(150,150,150);doc.setFontSize(7);doc.text(' - '+leadData.companyName+' - '+t,32,8);};
+    const newPage=(t)=>{footer();doc.addPage();pageNum++;header(t);return 18;};
+    const checkPage=(n,t)=>{if(y+n>ph-15)y=newPage(t);};
+
+    // PAGE 1
+    doc.setFillColor(26,26,26);doc.rect(0,0,pw,25,'F');
+    doc.setTextColor(0,212,170);doc.setFontSize(18);doc.setFont('helvetica','bold');doc.text('ProgiCheck',10,15);
+    if(vType!=='free'){doc.setFillColor(vType==='pro'?255:59,vType==='pro'?215:130,vType==='pro'?0:246);doc.roundedRect(45,9,vType==='pro'?18:28,8,2,2,'F');doc.setTextColor(vType==='pro'?26:255,vType==='pro'?26:255,vType==='pro'?26:255);doc.setFontSize(6);doc.text(vType.toUpperCase(),vType==='pro'?54:59,14,{align:'center'});}
+    doc.setTextColor(150,150,150);doc.setFontSize(8);doc.text(leadData.date,pw-10,15,{align:'right'});
+    
+    y=32;
+    doc.setTextColor(26,26,26);doc.setFontSize(14);doc.setFont('helvetica','bold');doc.text('RAPPORT MATURITE NUMERIQUE',pw/2,y,{align:'center'});
+    y+=7;doc.setTextColor(0,212,170);doc.setFontSize(12);doc.text(leadData.companyName,pw/2,y,{align:'center'});
+    y+=5;doc.setTextColor(100,100,100);doc.setFontSize(8);doc.setFont('helvetica','normal');doc.text(leadData.sector+' | '+leadData.employees+' employes',pw/2,y,{align:'center'});
+    
+    y+=10;
+    doc.setFillColor(26,26,26);doc.roundedRect(25,y,pw-50,30,4,4,'F');
+    doc.setTextColor(0,212,170);doc.setFontSize(28);doc.setFont('helvetica','bold');doc.text(d.totalScore+'/100',pw/2,y+15,{align:'center'});
+    doc.setTextColor(255,255,255);doc.setFontSize(10);doc.text(d.levelInfo.pdfLabel,pw/2,y+24,{align:'center'});
+    y+=36;
+    
+    doc.setFillColor(240,240,240);doc.roundedRect(10,y,pw-20,10,2,2,'F');
+    doc.setTextColor(26,26,26);doc.setFontSize(8);doc.setFont('helvetica','bold');doc.text('DIC:',15,y+7);
+    doc.setTextColor(16,185,129);doc.text('D:'+d.dicFinal.disponibilite+'%',30,y+7);
+    doc.setTextColor(59,130,246);doc.text('I:'+d.dicFinal.integrite+'%',55,y+7);
+    doc.setTextColor(139,92,246);doc.text('C:'+d.dicFinal.confidentialite+'%',75,y+7);
+    y+=15;
+    
+    doc.setTextColor(26,26,26);doc.setFontSize(10);doc.setFont('helvetica','bold');doc.text('SCORES PAR CATEGORIE',10,y);y+=6;
+    Object.entries(d.categoryScores).forEach(([id,c])=>{
+        const col=c.score<40?[239,68,68]:c.score<70?[245,158,11]:[16,185,129];
+        doc.setFillColor(230,230,230);doc.roundedRect(10,y,pw-20,8,2,2,'F');
+        doc.setFillColor(...col);const bw=(pw-20)*c.score/100;if(bw>2)doc.roundedRect(10,y,bw,8,2,2,'F');
+        doc.setTextColor(40,40,40);doc.setFontSize(7);doc.setFont('helvetica','bold');
+        doc.text(c.pdfName,13,y+5);doc.text(c.score+'%',pw-13,y+5,{align:'right'});
+        y+=10;
+    });
+    
+    // PAGE 2: RECOMMANDATIONS
+    y=newPage('Recommandations');
+    doc.setTextColor(26,26,26);doc.setFontSize(11);doc.setFont('helvetica','bold');doc.text('RECOMMANDATIONS',10,y);y+=8;
+    Object.entries(d.categoryScores).sort((a,b)=>a[1].score-b[1].score).forEach(([id,c])=>{
+        checkPage(18,'Recommandations');
+        const col=c.score<40?[239,68,68]:c.score<70?[245,158,11]:[16,185,129];
+        const prio=c.score<40?'URGENT':c.score<70?'AMELIORER':'BON';
+        doc.setFillColor(248,248,248);doc.roundedRect(10,y,pw-20,14,2,2,'F');
+        doc.setFillColor(...col);doc.roundedRect(10,y,3,14,1,1,'F');
+        doc.setTextColor(26,26,26);doc.setFontSize(8);doc.setFont('helvetica','bold');doc.text(c.pdfName,16,y+5);
+        doc.setFillColor(...col);doc.roundedRect(pw-42,y+1,20,5,1,1,'F');
+        doc.setTextColor(255,255,255);doc.setFontSize(5);doc.text(prio,pw-32,y+4.5,{align:'center'});
+        doc.setTextColor(...col);doc.setFontSize(9);doc.text(c.score+'%',pw-15,y+5,{align:'right'});
+        doc.setTextColor(80,80,80);doc.setFontSize(6);doc.setFont('helvetica','normal');
+        doc.text(getInterp(id,c.score),16,y+11);
+        y+=16;
+    });
+    
+    // PAGES STANDARD/PRO: DETAILS
+    if(showDetails){
+        y=newPage('Reponses');
+        doc.setTextColor(26,26,26);doc.setFontSize(11);doc.setFont('helvetica','bold');doc.text('DETAIL DES 27 REPONSES',10,y);y+=8;
+        let qNum=1,qIdx=0;
+        categories.forEach(cat=>{
+            checkPage(18,'Reponses');
+            const catScore=d.categoryScores[cat.id].score;
+            const col=catScore<40?[239,68,68]:catScore<70?[245,158,11]:[16,185,129];
+            doc.setFillColor(...col);doc.roundedRect(10,y,pw-20,6,1,1,'F');
+            doc.setTextColor(255,255,255);doc.setFontSize(7);doc.setFont('helvetica','bold');
+            doc.text(cat.pdfName.toUpperCase()+' - '+catScore+'%',15,y+4);y+=9;
+            
+            cat.questions.forEach(q=>{
+                const sel=answers[qIdx];
+                const txt=sel!==null?q.options[sel].text:'N/A';
+                const sc=sel!==null?q.options[sel].score:0;
+                checkPage(14,'Reponses');
+                doc.setTextColor(26,26,26);doc.setFontSize(6);doc.setFont('helvetica','bold');
+                const qLines=doc.splitTextToSize('Q'+qNum+'. '+q.text,pw-25);
+                doc.text(qLines,10,y);y+=qLines.length*3+1;
+                const scCol=sc===0?[239,68,68]:sc===1?[245,158,11]:sc===2?[59,130,246]:[16,185,129];
+                doc.setFillColor(245,245,245);doc.roundedRect(15,y,pw-30,6,1,1,'F');
+                doc.setFillColor(...scCol);doc.roundedRect(15,y,2,6,0.5,0.5,'F');
+                doc.setTextColor(60,60,60);doc.setFontSize(5);doc.setFont('helvetica','normal');
+                doc.text(txt.substring(0,65),20,y+4);
+                doc.setFillColor(...scCol);doc.roundedRect(pw-23,y+0.5,10,5,1,1,'F');
+                doc.setTextColor(255,255,255);doc.setFontSize(5);doc.text(sc+'/3',pw-18,y+3.5,{align:'center'});
+                y+=8;qNum++;qIdx++;
+            });
+            y+=2;
+        });
+        
+        // DIC Analysis
+        y=newPage('Analyse DIC');
+        doc.setTextColor(26,26,26);doc.setFontSize(11);doc.setFont('helvetica','bold');doc.text('ANALYSE DIC',10,y);y+=10;
+        [{n:'DISPONIBILITE',v:d.dicFinal.disponibilite,c:[16,185,129]},{n:'INTEGRITE',v:d.dicFinal.integrite,c:[59,130,246]},{n:'CONFIDENTIALITE',v:d.dicFinal.confidentialite,c:[139,92,246]}].forEach(dic=>{
+            doc.setFillColor(...dic.c);doc.roundedRect(10,y,pw-20,15,3,3,'F');
+            doc.setTextColor(255,255,255);doc.setFontSize(10);doc.setFont('helvetica','bold');
+            doc.text(dic.n+' - '+dic.v+'%',15,y+7);
+            doc.setFontSize(7);doc.setFont('helvetica','normal');
+            doc.text(dic.v<40?'CRITIQUE':dic.v<70?'A AMELIORER':'BON',15,y+12);
+            y+=18;
+        });
+        
+        // Stats
+        y+=5;doc.setTextColor(26,26,26);doc.setFontSize(10);doc.setFont('helvetica','bold');doc.text('STATISTIQUES',10,y);y+=8;
+        const totalQ=27;let s0=0,s1=0,s2=0,s3=0;
+        answers.forEach((a,i)=>{if(a!==null){const qd=getQuestionData(i);const sc=qd.question.options[a].score;if(sc===0)s0++;else if(sc===1)s1++;else if(sc===2)s2++;else s3++;}});
+        doc.setFillColor(240,240,240);doc.roundedRect(10,y,pw-20,22,2,2,'F');
+        doc.setFontSize(7);doc.setFont('helvetica','normal');
+        doc.setTextColor(239,68,68);doc.text('0/3: '+s0+' ('+Math.round(s0/totalQ*100)+'%)',15,y+7);
+        doc.setTextColor(245,158,11);doc.text('1/3: '+s1+' ('+Math.round(s1/totalQ*100)+'%)',15,y+13);
+        doc.setTextColor(59,130,246);doc.text('2/3: '+s2+' ('+Math.round(s2/totalQ*100)+'%)',70,y+7);
+        doc.setTextColor(16,185,129);doc.text('3/3: '+s3+' ('+Math.round(s3/totalQ*100)+'%)',70,y+13);
+    }
+    
+    // UPSELL pour gratuit/standard
+    if(vType!=='pro'){
+        y=newPage('Version Pro');
+        doc.setFillColor(255,215,0);doc.roundedRect(10,y,pw-20,10,2,2,'F');
+        doc.setTextColor(26,26,26);doc.setFontSize(11);doc.setFont('helvetica','bold');
+        doc.text('PASSEZ A LA VERSION '+(vType==='free'?'STANDARD OU ':'')+'PRO',pw/2,y+7,{align:'center'});y+=15;
+        
+        if(vType==='free'){
+            doc.setFillColor(59,130,246);doc.roundedRect(10,y,pw/2-15,45,3,3,'F');
+            doc.setTextColor(255,255,255);doc.setFontSize(10);doc.setFont('helvetica','bold');
+            doc.text('STANDARD',pw/4-2,y+8,{align:'center'});
+            doc.setFontSize(12);doc.text('5 000 FCFA (~8 USD)',pw/4-2,y+18,{align:'center'});
+            doc.setFontSize(6);doc.setFont('helvetica','normal');
+            doc.text('+ PDF complet 6+ pages',15,y+28);
+            doc.text('+ Detail 27 reponses',15,y+34);
+            doc.text('+ Analyse DIC + Stats',15,y+40);
+        }
+        
+        const proX=vType==='free'?pw/2+5:10;const proW=vType==='free'?pw/2-15:pw-20;
+        doc.setFillColor(255,215,0);doc.roundedRect(proX,y,proW,45,3,3,'F');
+        doc.setTextColor(26,26,26);doc.setFontSize(10);doc.setFont('helvetica','bold');
+        doc.text('PRO',proX+proW/2,y+8,{align:'center'});
+        doc.setFontSize(12);doc.text('25 000 FCFA (~40 USD)',proX+proW/2,y+18,{align:'center'});
+        doc.setFontSize(6);doc.setFont('helvetica','normal');
+        doc.text('+ Rapport personnalise expert',proX+5,y+28);
+        doc.text('+ Plan 90 jours sur mesure',proX+5,y+34);
+        doc.text('+ Appel conseil 30min',proX+5,y+40);
+        y+=55;
+        
+        doc.setFillColor(0,212,170);doc.roundedRect(10,y,pw-20,12,3,3,'F');
+        doc.setTextColor(26,26,26);doc.setFontSize(8);doc.setFont('helvetica','bold');
+        doc.text('Contact: technique.bf@progressthings.com | www.progressthings.com',pw/2,y+8,{align:'center'});
+    }
+    
+    // CTA FINAL
+    checkPage(22,'Contact');y+=5;
+    doc.setFillColor(0,212,170);doc.roundedRect(10,y,pw-20,18,3,3,'F');
+    doc.setTextColor(26,26,26);doc.setFontSize(9);doc.setFont('helvetica','bold');
+    doc.text('Progress Things - Let\'s do it together',pw/2,y+7,{align:'center'});
+    doc.setFontSize(7);doc.setFont('helvetica','normal');
+    doc.text('www.progressthings.com',pw/2,y+13,{align:'center'});
+    
+    footer();
+    var fileName='ProgiCheck_'+(vType!=='free'?vType.toUpperCase()+'_':'')+leadData.companyName.replace(/[^a-zA-Z0-9]/g,'_')+'.pdf';
+    doc.save(fileName);
+    showToast('PDF telecharge!','success');
+}
+</script>
+</body>
+</html>
